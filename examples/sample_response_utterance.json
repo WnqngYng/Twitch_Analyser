@@ -1,0 +1,32 @@
+{
+  "schema_version": "1",
+  "description": "One row shape used for viewer chat and influencer video transcript.",
+  "example_viewer": {
+    "id": "viewer-00042",
+    "speaker_role": "viewer",
+    "source": "chat",
+    "stream_minute": 16.02,
+    "promo_minute": 7.02,
+    "timestamp": "2026-05-20T19:21:02.687000+00:00",
+    "user": "supertrimone_ita",
+    "original": "ma come funziona il buono sconto",
+    "english": null,
+    "translate_to": "en",
+    "language": "it"
+  },
+  "example_influencer": {
+    "id": "influencer-00012",
+    "speaker_role": "influencer",
+    "source": "video_transcript",
+    "stream_minute": 16.1,
+    "promo_minute": 7.1,
+    "timestamp": "2026-05-20T19:21:08.000000+00:00",
+    "user": "therealmarzaa",
+    "original": "ragazzi apriamo il pacco Temu, codice KAV3769 in chat",
+    "english": null,
+    "translate_to": "en",
+    "language": "it",
+    "segment_start_seconds": 966.0,
+    "segment_end_seconds": 972.5
+  }
+}

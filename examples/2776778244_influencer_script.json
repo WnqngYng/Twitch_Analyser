@@ -1,0 +1,51 @@
+{
+  "vod_id": "2776778244",
+  "channel": "therealmarzaa",
+  "language": "it",
+  "promo_code": "KAV3769",
+  "notes": "Edit `text` after reviewing the VOD or a Whisper transcript. Minutes are from VOD start. Peak chat minutes (stream): 16, 22, 19, 15.",
+  "segments": [
+    {
+      "id": "ad-open",
+      "start_minute": 9,
+      "end_minute": 14,
+      "topic": "Temu #AD intro, !temu bot CTA",
+      "text": ""
+    },
+    {
+      "id": "pack-opening-peak",
+      "start_minute": 14,
+      "end_minute": 18,
+      "topic": "Pack opening / surprise reveal (chat peak ~min 16)",
+      "text": ""
+    },
+    {
+      "id": "banter-bridge",
+      "start_minute": 18,
+      "end_minute": 21,
+      "topic": "Chat banter between segments",
+      "text": ""
+    },
+    {
+      "id": "second-peak",
+      "start_minute": 21,
+      "end_minute": 24,
+      "topic": "Second engagement spike (chat peak ~min 22)",
+      "text": ""
+    },
+    {
+      "id": "mid-promo",
+      "start_minute": 24,
+      "end_minute": 36,
+      "topic": "Ongoing Temu segment / gameplay",
+      "text": ""
+    },
+    {
+      "id": "code-reminder",
+      "start_minute": 36,
+      "end_minute": 48,
+      "topic": "Code KAV3769 + app link reminder",
+      "text": ""
+    }
+  ]
+}

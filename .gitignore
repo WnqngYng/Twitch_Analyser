@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.pytest_cache/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+data/
+reports/
+tools/
+sidenotes/
+ffmpeg
+ffprobe
+version.json

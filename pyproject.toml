@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "twitch-promo-analyzer"
+version = "0.1.0"
+description = "Analyze Twitch influencer promotions and viewer response, then generate campaign recommendations."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Twitch Promo Analyzer" }]
+license = { text = "MIT" }
+keywords = ["twitch", "influencer", "marketing", "chat", "analytics"]
+dependencies = []
+
+[project.optional-dependencies]
+full = [
+    "openai-whisper",
+    "deep-translator",
+]
+
+[project.scripts]
+twitch-promo-analyzer = "twitch_promo_analyzer.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["twitch_promo_analyzer*"]
