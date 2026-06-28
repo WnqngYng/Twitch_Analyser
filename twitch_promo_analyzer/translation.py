@@ -5,7 +5,7 @@ from collections import Counter
 from typing import Any
 
 from .models import ChatMessage
-from .timing import filter_by_minutes, offset_minutes, stream_origin
+from .timing import align_messages_to_window, filter_by_minutes, offset_minutes, stream_origin
 
 
 ITALIAN_MARKERS = {
@@ -67,10 +67,15 @@ def assess_translation_need(
     peak_samples: list[dict[str, Any]] | None = None,
     target_report_language: str = "en",
 ) -> dict[str, Any]:
-    origin = stream_origin(messages)
+    aligned_messages, timing_diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        promo_end_minute,
+    )
+    origin = stream_origin(aligned_messages)
     promo_messages = [
         message
-        for message in messages
+        for message in aligned_messages
         if promo_start_minute <= offset_minutes(message, origin) < promo_end_minute
         and message.user.lower() not in {"streamelements", "nightbot", "moobot", "fossabot"}
     ]
@@ -88,6 +93,7 @@ def assess_translation_need(
         "language_mix": language_mix,
         "recommendation": recommendation,
         "messages_to_translate": translate_items,
+        "data_quality": timing_diagnostics,
         "implementation_notes": [
             "This project does not call external translation APIs (stdlib-only).",
             "Export the listed messages to your translation tool or enable translation in the final report pipeline.",

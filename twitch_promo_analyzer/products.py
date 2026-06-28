@@ -9,7 +9,7 @@ from typing import Any
 from .models import ChatMessage
 from .participation import analyze_participation_by_product, analyze_participation_issues
 from .sentiment import detect_intents, score_sentiment, sentiment_label
-from .timing import filter_by_minutes, offset_minutes, stream_origin
+from .timing import align_messages_to_window, filter_by_minutes, offset_minutes, stream_origin
 
 
 DEFAULT_BOT_USERS = {"streamelements", "nightbot", "moobot", "fossabot"}
@@ -103,6 +103,7 @@ def classify_product_line(text: str, product_catalog: ProductCatalog | None = No
 def build_product_segments(
     transcript: list[dict[str, Any]],
     product_catalog: ProductCatalog | None = None,
+    promo_end_minute: float | None = None,
 ) -> list[dict[str, Any]]:
     """Group transcript into product reveal segments from first mention of each product."""
     anchors: list[tuple[str, str, float, str]] = []
@@ -129,7 +130,8 @@ def build_product_segments(
     if not anchors:
         return []
 
-    promo_end = max(float(line.get("stream_minute", 0)) for line in transcript)
+    transcript_end = max(float(line.get("stream_minute", 0)) for line in transcript)
+    promo_end = promo_end_minute if promo_end_minute is not None else transcript_end
     segments: list[dict[str, Any]] = []
     for index, (product_id, name, start_minute, intro_text) in enumerate(anchors):
         end_minute = anchors[index + 1][2] if index + 1 < len(anchors) else promo_end
@@ -148,6 +150,9 @@ def build_product_segments(
                 "promo_minute_end": None,
                 "intro_text": intro_text,
                 "transcript_line_count": len(segment_lines),
+                "segment_source": "annotated_transcript"
+                if any(str(line.get("product_id") or "").strip() for line in transcript)
+                else "keyword_catalog",
             }
         )
     return segments
@@ -164,20 +169,29 @@ def analyze_product_chat_response(
     messages: list[ChatMessage],
     segments: list[dict[str, Any]],
     promo_start_minute: float,
+    promo_end_minute: float | None = None,
     response_window_minutes: float = 3.0,
     product_catalog: ProductCatalog | None = None,
 ) -> list[dict[str, Any]]:
-    origin = stream_origin(messages)
+    expected_end = promo_end_minute if promo_end_minute is not None else (
+        max(segment["stream_minute_end"] for segment in segments) if segments else promo_start_minute
+    )
+    aligned_messages, _timing_diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        expected_end,
+    )
+    origin = stream_origin(aligned_messages)
     results: list[dict[str, Any]] = []
     catalog = product_catalog or PRODUCT_CATALOG
 
     for segment in segments:
         start = segment["stream_minute_start"]
         end = segment["stream_minute_end"]
-        response_end = min(start + response_window_minutes, end)
+        response_end = min(start + response_window_minutes, expected_end)
 
-        segment_messages = audience_messages(messages, origin, start, end)
-        burst_messages = audience_messages(messages, origin, start, response_end)
+        segment_messages = audience_messages(aligned_messages, origin, start, end)
+        response_messages = audience_messages(aligned_messages, origin, start, response_end)
 
         product_chat = [
             message
@@ -186,15 +200,15 @@ def analyze_product_chat_response(
         ]
         temu_chat = [message for message in segment_messages if "temu" in message.message.lower() or "kav3769" in message.message.lower()]
 
-        burst_sentiments = [score_sentiment(message.message) for message in burst_messages]
+        response_sentiments = [score_sentiment(message.message) for message in response_messages]
         segment_sentiments = [score_sentiment(message.message) for message in segment_messages]
         sentiment_labels = Counter(sentiment_label(score) for score in segment_sentiments)
         intents: Counter[str] = Counter()
-        for message in burst_messages:
+        for message in response_messages:
             intents.update(detect_intents(message.message))
 
         participation = analyze_participation_issues(
-            messages,
+            aligned_messages,
             start,
             end,
             product_id=segment["product_id"],
@@ -210,12 +224,13 @@ def analyze_product_chat_response(
                 "headcount": {
                     "unique_chatters": len({message.user.lower() for message in segment_messages}),
                     "total_messages": len(segment_messages),
-                    "messages_first_3min": len(burst_messages),
-                    "unique_chatters_first_3min": len({message.user.lower() for message in burst_messages}),
+                    "messages_first_3min": len(response_messages),
+                    "unique_chatters_first_3min": len({message.user.lower() for message in response_messages}),
+                    "response_window_minutes": round(response_end - start, 3),
                 },
                 "viewer_sentiment": {
                     "avg_score": round(mean(segment_sentiments), 3) if segment_sentiments else 0.0,
-                    "avg_score_first_3min": round(mean(burst_sentiments), 3) if burst_sentiments else 0.0,
+                    "avg_score_first_3min": round(mean(response_sentiments), 3) if response_sentiments else 0.0,
                     "positive": sentiment_labels.get("positive", 0),
                     "neutral": sentiment_labels.get("neutral", 0),
                     "negative": sentiment_labels.get("negative", 0),
@@ -227,7 +242,7 @@ def analyze_product_chat_response(
                 "participation_issues": participation,
                 "chat": {
                     "messages_in_segment": len(segment_messages),
-                    "messages_first_3min": len(burst_messages),
+                    "messages_first_3min": len(response_messages),
                     "unique_chatters": len({message.user.lower() for message in segment_messages}),
                     "messages_per_minute": round(
                         len(segment_messages) / max(end - start, 0.5),
@@ -235,15 +250,16 @@ def analyze_product_chat_response(
                     ),
                     "product_keyword_mentions": len(product_chat),
                     "temu_or_code_mentions": len(temu_chat),
-                    "avg_sentiment_burst": round(mean(burst_sentiments), 3) if burst_sentiments else 0.0,
+                    "avg_sentiment_burst": round(mean(response_sentiments), 3) if response_sentiments else 0.0,
                     "intents_burst": dict(intents),
                 },
                 "response_score": score_product_response(
-                    len(burst_messages),
-                    len(segment_messages),
+                    len(response_messages),
+                    len({message.user.lower() for message in response_messages}),
                     len(product_chat),
                     len(temu_chat),
                     intents,
+                    response_minutes=response_end - start,
                 ),
             }
         )
@@ -277,15 +293,20 @@ def mentions_product(
 
 
 def score_product_response(
-    burst_count: int,
-    segment_count: int,
+    response_count: int,
+    response_unique_chatters: int,
     product_mentions: int,
     temu_mentions: int,
     intents: Counter[str],
+    response_minutes: float = 3.0,
 ) -> float:
-    score = burst_count * 2 + segment_count * 0.5
-    score += product_mentions * 4
-    score += temu_mentions * 2
+    minutes = max(response_minutes, 0.5)
+    message_rate = response_count / minutes
+    unique_rate = response_unique_chatters / minutes
+    score = message_rate * 3
+    score += unique_rate * 5
+    score += product_mentions * 3
+    score += temu_mentions * 1.5
     score += intents.get("purchase_intent", 0) * 5
     score += intents.get("excitement", 0) * 3
     score -= intents.get("objection", 0) * 4
@@ -320,11 +341,22 @@ def build_product_analysis(
 ) -> dict[str, Any]:
     transcript = transcript_document.get("transcript", [])
     catalog = product_catalog or PRODUCT_CATALOG
-    segments = build_product_segments(transcript, catalog)
-    ranked = analyze_product_chat_response(messages, segments, promo_start_minute, product_catalog=catalog)
+    aligned_messages, timing_diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        promo_end_minute,
+    )
+    segments = build_product_segments(transcript, catalog, promo_end_minute=promo_end_minute)
+    ranked = analyze_product_chat_response(
+        aligned_messages,
+        segments,
+        promo_start_minute,
+        promo_end_minute=promo_end_minute,
+        product_catalog=catalog,
+    )
 
     promo_participation = analyze_participation_issues(
-        messages,
+        aligned_messages,
         promo_start_minute,
         promo_end_minute,
         product_id="all_promo",
@@ -333,6 +365,18 @@ def build_product_analysis(
 
     return {
         "promo_window_minutes": [promo_start_minute, promo_end_minute],
+        "data_quality": {
+            **timing_diagnostics,
+            "product_segment_count": len(ranked),
+            "product_segment_source": "annotated_transcript"
+            if any(str(line.get("product_id") or "").strip() for line in transcript)
+            else "keyword_catalog",
+            "notes": [
+                "Headcount and sentiment are direct chat-window measurements.",
+                "Sentiment, intent, and response_score are heuristic signals, not sales attribution.",
+                "Product labels should be human-reviewed when generated from keywords or speech transcription.",
+            ],
+        },
         "product_segments": ranked,
         "best_product": ranked[0] if ranked else None,
         "promo_participation_issues": promo_participation,
@@ -389,10 +433,10 @@ def summarize_products(ranked: list[dict[str, Any]]) -> str:
     if not ranked:
         return "No product segments detected in transcript."
     best = ranked[0]
-    return (
+    summary = (
         f"Strongest chat response: {best['product_name']} "
-        f"(score {best['response_score']}, {best['chat']['messages_first_3min']} messages in first 3 min). "
-        f"Runner-up: {ranked[1]['product_name']} (score {ranked[1]['response_score']})"
-        if len(ranked) > 1
-        else ""
+        f"(score {best['response_score']}, {best['chat']['messages_first_3min']} messages in first 3 min)."
     )
+    if len(ranked) > 1:
+        summary += f" Runner-up: {ranked[1]['product_name']} (score {ranked[1]['response_score']})."
+    return summary

@@ -12,6 +12,7 @@ from .recommendations import attach_recommendations
 from .report import write_html_report, write_json_report
 from .peaks import analyze_promotion_peaks
 from .script_align import align_peaks_to_script, load_influencer_script
+from .timing import align_messages_to_window
 from .translation import assess_translation_need
 from .video import analyze_video_segment
 from .vod import download_vod_data
@@ -172,7 +173,13 @@ def analyze_promotion_command(args: argparse.Namespace) -> int:
     ctas = parse_multi_values(args.cta)
     brands.add(args.promo_code.lower())
     ctas.add(args.promo_code.lower())
-    messages = load_messages(chat_path)
+    messages, timing_diagnostics = align_messages_to_window(
+        load_messages(chat_path),
+        args.promo_start,
+        args.promo_end,
+    )
+    for warning in timing_diagnostics.get("warnings", []):
+        print(f"Timing warning: {warning}")
     analysis = analyze_promotion_window(
         messages,
         promo_start_minute=args.promo_start,
@@ -223,6 +230,9 @@ def analyze_promotion_command(args: argparse.Namespace) -> int:
     print(f"VOD: {vod_id}")
     print(f"Window: {args.promo_start}-{args.promo_end} minutes")
     print(f"Grade: {perf['grade']} ({perf['score']}/100)")
+    print(f"Grade confidence: {perf.get('confidence', 'n/a')}")
+    if perf.get("note"):
+        print(f"Note: {perf['note']}")
     print(f"Engagement lift: {round(analysis['lifts']['messages_per_minute'] * 100)}%")
     print(f"JSON: {out_path.resolve()}")
     return 0

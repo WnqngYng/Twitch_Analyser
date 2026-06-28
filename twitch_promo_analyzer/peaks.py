@@ -7,7 +7,7 @@ from typing import Any
 
 from .models import ChatMessage
 from .sentiment import detect_intents, score_sentiment, sentiment_label
-from .timing import offset_minutes, stream_origin
+from .timing import align_messages_to_window, offset_minutes, stream_origin
 
 
 DEFAULT_BOT_USERS = {"streamelements", "nightbot", "moobot", "fossabot"}
@@ -23,7 +23,11 @@ def analyze_promotion_peaks(
     top_n: int = 8,
     rolling_window_minutes: int = 3,
 ) -> dict[str, Any]:
-    sorted_messages = sorted(messages, key=lambda item: item.timestamp)
+    sorted_messages, timing_diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        promo_end_minute,
+    )
     origin = stream_origin(sorted_messages)
     excluded = DEFAULT_BOT_USERS | {user.lower() for user in exclude_users or set()}
     code_pattern = re.compile(re.escape(promo_code), re.IGNORECASE)
@@ -85,6 +89,7 @@ def analyze_promotion_peaks(
         "top_peaks_by_minute": peaks,
         "top_rolling_windows": rolling[:top_n],
         "promo_code_activity": code_stats,
+        "data_quality": timing_diagnostics,
         "summary": summarize_peaks(peaks, rolling, code_stats),
     }
 

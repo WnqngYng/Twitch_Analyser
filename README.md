@@ -84,7 +84,13 @@ python scripts/enrich_transcript_analysis.py
 
 **Full runbook for any VOD:** see [docs/RUNBOOK.md](docs/RUNBOOK.md)
 
+**Beginner setup guide for non-technical users:** see [docs/NON_TECHNICAL_SETUP_AND_RUN_GUIDE.md](docs/NON_TECHNICAL_SETUP_AND_RUN_GUIDE.md)
+
 **Detailed English/Chinese project guide and GitHub publishing checklist:** see [docs/PROJECT_GUIDE_EN_ZH.md](docs/PROJECT_GUIDE_EN_ZH.md)
+
+**Analysis validation status and caveats:** see [docs/ANALYSIS_VALIDATION_AUDIT.md](docs/ANALYSIS_VALIDATION_AUDIT.md)
+
+**Data pipeline and fairness review:** see [docs/DATA_PIPELINE_AND_FAIRNESS_REVIEW.md](docs/DATA_PIPELINE_AND_FAIRNESS_REVIEW.md)
 
 ```bash
 python scripts/run_vod_analysis.py \
@@ -93,6 +99,32 @@ python scripts/run_vod_analysis.py \
 ```
 
 Each utterance includes: `speaker_role`, `stream_minute`, `promo_minute`, `user`, `original`, `english`, `translate_to`. See `examples/sample_response_utterance.json`.
+
+### Validate timing before trusting reports
+
+Before comparing influencers or products, run the pipeline validator:
+
+```bash
+python scripts/validate_data_pipeline.py
+```
+
+If old CSV exports are missing `stream_offset_seconds`, repair them from the
+TwitchDownloader JSON:
+
+```bash
+python scripts/validate_data_pipeline.py --repair-csv
+```
+
+The validator checks whether chat, transcript, and product segment minutes use
+the same VOD timeline. This matters because a trimmed chat export can otherwise
+look like it starts at minute `0`, while the transcript is correctly marked as
+minute `150`, `55`, etc.
+
+Use the analysis as a fair read of **chat response** only when timing validation
+passes. Message counts, unique chatters, CTA/code mentions, and product-window
+headcount are direct measurements. Sentiment, intent, product response score,
+and final grade are transparent heuristics; they should not be presented as
+proof of sales or full influencer ROI without click/coupon/order data.
 
 ## Quick Start
 

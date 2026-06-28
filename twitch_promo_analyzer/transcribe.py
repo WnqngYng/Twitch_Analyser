@@ -195,8 +195,6 @@ def transcribe_promotion_segment(
         result["status"] = "transcript_missing"
         return result
 
-    trimmed_sources = {m4a, promo_mp4, promo_mp4_alt, wav}
-    time_offset = promo_start_minute if audio_source in trimmed_sources or wav.exists() else 0.0
     document = build_from_whisper(
         whisper_json,
         vod_id=vod_id,
@@ -204,7 +202,7 @@ def transcribe_promotion_segment(
         promo_start_minute=promo_start_minute,
         promo_end_minute=promo_end_minute,
         stream_start_iso=stream_start_iso,
-        time_offset_minutes=time_offset,
+        time_offset_minutes=None,
     )
     influencer_json = influencer_transcript_path(data_dir, vod_id)
     write_influencer_transcript(document, influencer_json)

@@ -5,7 +5,7 @@ from typing import Any
 
 from .analysis import safe_lift
 from .models import ChatMessage
-from .timing import filter_by_minutes, stream_origin
+from .timing import align_messages_to_window, filter_by_minutes, stream_origin
 
 
 DEFAULT_BOT_USERS = {"streamelements", "nightbot", "moobot", "fossabot"}
@@ -18,22 +18,29 @@ def analyze_post_promotion_interest(
     promo_end_minute: float,
     post_windows: list[tuple[float, float]] | None = None,
 ) -> dict[str, Any]:
-    origin = stream_origin(messages)
+    aligned_messages, timing_diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        promo_end_minute,
+    )
+    origin = stream_origin(aligned_messages)
     if post_windows is None:
-        duration = (max(messages, key=lambda item: item.timestamp).timestamp - origin).total_seconds() / 60
+        duration = (
+            max(aligned_messages, key=lambda item: item.timestamp).timestamp - origin
+        ).total_seconds() / 60
         post_windows = [
             (promo_end_minute, promo_end_minute + 30),
             (promo_end_minute + 30, promo_end_minute + 90),
             (promo_end_minute + 90, duration),
         ]
 
-    promo_messages = audience_window(messages, origin, promo_start_minute, promo_end_minute)
+    promo_messages = audience_window(aligned_messages, origin, promo_start_minute, promo_end_minute)
     windows: list[dict[str, Any]] = []
 
     for start, end in post_windows:
         if start >= end:
             continue
-        window_messages = audience_window(messages, origin, start, end)
+        window_messages = audience_window(aligned_messages, origin, start, end)
         promo_signals = [message for message in window_messages if PROMO_SIGNAL_RE.search(message.message)]
         windows.append(
             {
@@ -68,6 +75,7 @@ def analyze_post_promotion_interest(
         },
         "post_promo_windows": windows,
         "retention_ratio_first_30min": retention_ratio,
+        "data_quality": timing_diagnostics,
         "verdict": build_post_promo_verdict(windows, promo_signal_rate, retention_ratio),
     }
 

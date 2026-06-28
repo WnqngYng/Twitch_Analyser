@@ -55,6 +55,19 @@ python scripts/run_vod_analysis.py \
   --skip-video --skip-transcribe
 ```
 
+Before reviewing the report, validate the data alignment:
+
+```bash
+python scripts/validate_data_pipeline.py --vod-id 2776778244
+```
+
+If the validator says a CSV is missing `stream_offset_seconds`, repair it from
+the TwitchDownloader JSON:
+
+```bash
+python scripts/validate_data_pipeline.py --vod-id 2776778244 --repair-csv
+```
+
 ### What each step does
 
 | Step | Action | Output |
@@ -66,6 +79,7 @@ python scripts/run_vod_analysis.py \
 | 5 | Viewer response export | `data/<vod_id>/<vod_id>_viewer_responses.csv` |
 | 6 | Product + post-promo reports | `reports/<vod_id>_product_*.csv` |
 | 7 | **Plain-text findings report** | `reports/<vod_id>_findings_report.txt` |
+| QA | Timing/product validation | `python scripts/validate_data_pipeline.py --vod-id <vod_id>` |
 
 ## 3. Run steps manually (if you prefer control)
 

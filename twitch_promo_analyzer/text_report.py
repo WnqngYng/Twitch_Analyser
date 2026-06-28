@@ -70,6 +70,7 @@ def build_findings_report(
         promo_summary = promotion.get("summaries", {}).get("promotion", {})
         baseline_summary = promotion.get("summaries", {}).get("baseline", {})
         settings = promotion.get("settings", {})
+        data_quality = promotion.get("data_quality", {})
 
         lines.extend(
             section(
@@ -82,6 +83,7 @@ def build_findings_report(
                     f"Stream duration:  {promotion.get('vod', {}).get('stream_duration_minutes', 'n/a')} min",
                     "",
                     f"Performance grade: {perf.get('grade', 'n/a')} ({perf.get('score', 'n/a')}/100)",
+                    f"Grade confidence: {perf.get('confidence', 'n/a')}",
                     f"Verdict:          {perf.get('verdict', 'n/a')}",
                     "",
                     "Engagement vs baseline (first 9 min):",
@@ -99,6 +101,11 @@ def build_findings_report(
                     "Baseline (pre-promo):",
                     f"  Chat messages:    {baseline_summary.get('message_count', 'n/a')}",
                     f"  Unique chatters:  {baseline_summary.get('unique_chatters', 'n/a')}",
+                    "",
+                    "Data quality:",
+                    f"  Chat alignment:   {data_quality.get('alignment', 'n/a')}",
+                    f"  Offset coverage:  {data_quality.get('stream_offset_coverage', 'n/a')}",
+                    f"  Warnings:         {' | '.join(data_quality.get('warnings', [])) or 'none'}",
                 ],
             )
         )
@@ -140,6 +147,7 @@ def build_findings_report(
             )
 
     if product:
+        quality = product.get("data_quality", {})
         lines.extend(
             section(
                 "4. Executive summaries",
@@ -148,6 +156,11 @@ def build_findings_report(
                     product.get("headcount_summary", ""),
                     product.get("sentiment_summary", ""),
                     product.get("participation_summary", ""),
+                    "",
+                    "Confidence note: headcount/message counts are direct measurements after timing alignment; "
+                    "sentiment, intent, and response_score are heuristic signals.",
+                    f"Product segment source: {quality.get('product_segment_source', 'n/a')}",
+                    f"Timing warnings: {' | '.join(quality.get('warnings', [])) or 'none'}",
                 ],
             )
         )

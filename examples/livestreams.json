@@ -1,0 +1,120 @@
+{
+  "source": "Google Doc livestream list provided by the project owner",
+  "default_brand_keywords": ["temu", "kav3769", "coupon", "sconto", "codice"],
+  "default_cta_keywords": ["!temu", "temu.com", "link", "codice", "coupon", "kav3769"],
+  "livestreams": [
+    {
+      "creator": "Marzaa",
+      "twitch": "https://www.twitch.tv/therealmarzaa",
+      "youtube": "https://www.youtube.com/channel/UC7gco8hk-2GmbTpzRSQAQeQ",
+      "vod_url": "https://www.twitch.tv/videos/2776778244?sr=a",
+      "vod_id": "2776778244",
+      "dedicated_video": "https://www.youtube.com/watch?v=I0gP2qlt3ow",
+      "campaign": "100 EUR coupon bundle + discount price",
+      "promo_start_minute": 9.0,
+      "promo_end_minute": 48.0,
+      "promo_code": "KAV3769",
+      "influencer": "therealmarzaa"
+    },
+    {
+      "creator": "Frenezy",
+      "twitch": "https://www.twitch.tv/freneh",
+      "youtube": "https://www.youtube.com/channel/UChquaYz-rHBPS8x5kmqLvTg",
+      "vod_url": "https://www.twitch.tv/videos/2781332514",
+      "vod_id": "2781332514",
+      "campaign": "100 EUR coupon bundle + discount price",
+      "promo_start_minute": 55.0,
+      "promo_end_minute": 113.0,
+      "promo_code": "KAV3769",
+      "influencer": "freneh"
+    },
+    {
+      "creator": "David Rubino",
+      "twitch": "https://www.twitch.tv/davidrubino",
+      "vod_url": "https://www.twitch.tv/videos/2747954975?filter=archives&sort=time",
+      "vod_id": "2747954975",
+      "campaign": "100 EUR coupon bundle + discount price",
+      "promo_code": "KAV3769",
+      "influencer": "davidrubino"
+    },
+    {
+      "creator": "David Rubino",
+      "twitch": "https://www.twitch.tv/davidrubino",
+      "vod_url": "https://www.twitch.tv/videos/2770263832",
+      "vod_id": "2770263832",
+      "campaign": "20 EUR coupon",
+      "promo_code": "KAV3769",
+      "influencer": "davidrubino"
+    },
+    {
+      "creator": "Flokox",
+      "twitch": "https://www.twitch.tv/flokox",
+      "youtube": "https://www.youtube.com/@flokox_",
+      "vod_url": "https://www.twitch.tv/videos/2771818929?filter=archives&sort=time",
+      "vod_id": "2771818929",
+      "campaign": "0 EUR purchase",
+      "promo_start_minute": 150.0,
+      "promo_end_minute": 180.0,
+      "promo_code": "KAV6278",
+      "influencer": "flokox"
+    },
+    {
+      "creator": "Flokox",
+      "twitch": "https://www.twitch.tv/flokox",
+      "youtube": "https://www.youtube.com/@flokox_",
+      "vod_url": "https://www.twitch.tv/videos/2766317791",
+      "vod_id": "2766317791",
+      "campaign": "100 EUR coupon bundle + discount price",
+      "promo_code": "KAV3769",
+      "influencer": "flokox"
+    },
+    {
+      "creator": "Pesh",
+      "twitch": "https://www.twitch.tv/pesh",
+      "youtube": "https://www.youtube.com/@PeshRewind",
+      "vod_url": "https://www.twitch.tv/videos/2765469081",
+      "vod_id": "2765469081",
+      "dedicated_video": "https://www.youtube.com/watch?v=pUXqKcX9ArQ",
+      "campaign": "0 EUR purchase",
+      "promo_start_minute": 30.0,
+      "promo_end_minute": 72.0,
+      "promo_code": "KAU3769",
+      "influencer": "pesh"
+    },
+    {
+      "creator": "Pesh",
+      "twitch": "https://www.twitch.tv/pesh",
+      "youtube": "https://www.youtube.com/@PeshRewind",
+      "vod_url": "https://www.twitch.tv/videos/2770908852",
+      "vod_id": "2770908852",
+      "dedicated_video": "https://www.youtube.com/watch?v=xk1OQZipBWM",
+      "campaign": "100 EUR coupon bundle + discount price",
+      "promo_start_minute": 30.0,
+      "promo_end_minute": 72.0,
+      "promo_code": "KAV3769",
+      "influencer": "pesh"
+    },
+    {
+      "creator": "MatteoHS",
+      "twitch": "https://www.twitch.tv/matteohs",
+      "youtube": "https://www.youtube.com/@MatteoHS",
+      "vod_url": "https://www.twitch.tv/videos/2764754721",
+      "vod_id": "2764754721",
+      "campaign": "0 EUR purchase",
+      "promo_code": "KAV3769",
+      "influencer": "matteohs"
+    },
+    {
+      "creator": "MatteoHS",
+      "twitch": "https://www.twitch.tv/matteohs",
+      "youtube": "https://www.youtube.com/@MatteoHS",
+      "vod_url": "https://www.twitch.tv/videos/2772736149",
+      "vod_id": "2772736149",
+      "campaign": "100 EUR coupon bundle + discount price",
+      "promo_start_minute": 11.0,
+      "promo_end_minute": 75.0,
+      "promo_code": "KAV3769",
+      "influencer": "matteohs"
+    }
+  ]
+}

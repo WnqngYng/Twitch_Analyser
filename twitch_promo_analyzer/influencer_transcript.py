@@ -153,7 +153,7 @@ def build_from_whisper(
     promo_start_minute: float,
     promo_end_minute: float,
     stream_start_iso: str | None,
-    time_offset_minutes: float = 0.0,
+    time_offset_minutes: float | None = None,
 ) -> dict[str, Any]:
     lines = influencer_utterances_from_whisper(
         whisper_path,

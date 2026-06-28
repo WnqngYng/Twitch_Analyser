@@ -43,7 +43,7 @@ from twitch_promo_analyzer.products import (
     load_product_catalog,
 )
 from twitch_promo_analyzer.report_export import write_product_reports
-from twitch_promo_analyzer.timing import stream_origin
+from twitch_promo_analyzer.timing import align_messages_to_window, stream_origin
 from twitch_promo_analyzer.transcribe import transcribe_promotion_segment
 from twitch_promo_analyzer.utterances import viewer_utterances_from_chat, write_responses_csv, write_responses_json
 from twitch_promo_analyzer.vod import extract_vod_id
@@ -145,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
             str(args.promo_end),
             "--promo-code",
             args.promo_code,
+            "--influencer",
+            args.influencer,
         ]
         for brand in brands:
             promo_cmd.extend(["--brand", brand])
@@ -153,7 +155,13 @@ def main(argv: list[str] | None = None) -> int:
         run_step("2/6 Promotion window analysis", promo_cmd)
 
     # Step 3 — Transcribe influencer audio (Whisper)
-    messages = load_messages(chat_path)
+    messages, timing_diagnostics = align_messages_to_window(
+        load_messages(chat_path),
+        args.promo_start,
+        args.promo_end,
+    )
+    for warning in timing_diagnostics.get("warnings", []):
+        print(f"Timing warning: {warning}", file=sys.stderr)
     stream_start = stream_origin(messages).isoformat()
     transcript_path = influencer_transcript_path(args.data_dir, vod_id)
 
@@ -207,7 +215,10 @@ def main(argv: list[str] | None = None) -> int:
         document["product_catalog_path"] = str(catalog_path)
         print(f"Using product catalog: {catalog_path.resolve()}")
     else:
-        print("Using built-in product catalog. Add --extract-products for a VOD-specific catalog.")
+        print(
+            "No VOD-specific product catalog JSON found. "
+            "Using transcript product_id annotations when present, with the built-in catalog as fallback."
+        )
 
     transcript = annotate_transcript_products(transcript, product_catalog)
     document["transcript"] = transcript

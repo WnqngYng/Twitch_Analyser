@@ -9,7 +9,7 @@ from typing import Any
 from .analysis import STOPWORDS, safe_lift, summarize_window
 from .models import ChatMessage
 from .sentiment import detect_intents, score_sentiment, sentiment_label, tokenize_for_topics
-from .timing import filter_by_minutes, minute_bucket_counts, stream_origin
+from .timing import align_messages_to_window, filter_by_minutes, minute_bucket_counts, stream_origin
 
 
 DEFAULT_BOT_USERS = {"streamelements", "nightbot", "moobot", "fossabot"}
@@ -27,8 +27,13 @@ def analyze_promotion_window(
     exclude_users: set[str] | None = None,
     stream_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    sorted_messages = sorted(messages, key=lambda item: item.timestamp)
+    sorted_messages, timing_diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        promo_end_minute,
+    )
     origin = stream_origin(sorted_messages)
+    baseline_start = max(0.0, promo_start_minute - baseline_minutes)
     promo_end = promo_end_minute
     post_end = promo_end + (post_minutes if post_minutes is not None else promo_end - promo_start_minute)
 
@@ -39,7 +44,7 @@ def analyze_promotion_window(
     excluded = DEFAULT_BOT_USERS | {user.lower() for user in exclude_users or set()}
 
     windows = {
-        "baseline": filter_by_minutes(sorted_messages, 0, promo_start_minute, origin),
+        "baseline": filter_by_minutes(sorted_messages, baseline_start, promo_start_minute, origin),
         "promotion": filter_by_minutes(sorted_messages, promo_start_minute, promo_end, origin),
         "post_promotion": filter_by_minutes(sorted_messages, promo_end, post_end, origin),
     }
@@ -49,7 +54,7 @@ def analyze_promotion_window(
         for name, window in windows.items()
     }
 
-    baseline_span = max(promo_start_minute, 1)
+    baseline_span = max(promo_start_minute - baseline_start, 1)
     promo_span = max(promo_end - promo_start_minute, 1)
     post_span = max(post_end - promo_end, 1)
 
@@ -68,7 +73,14 @@ def analyze_promotion_window(
         summaries["post_promotion"],
         word_analysis,
         stream_stats,
+        baseline_available=bool(audience_windows["baseline"]),
     )
+    timing_diagnostics["baseline_message_count"] = len(audience_windows["baseline"])
+    timing_diagnostics["promotion_message_count"] = len(audience_windows["promotion"])
+    if not audience_windows["baseline"]:
+        timing_diagnostics["warnings"].append(
+            "Baseline window has no audience chat. Engagement lift and grade are low-confidence."
+        )
 
     return {
         "vod": {
@@ -80,7 +92,7 @@ def analyze_promotion_window(
             ),
         },
         "windows": {
-            "baseline_minutes": [0, promo_start_minute],
+            "baseline_minutes": [baseline_start, promo_start_minute],
             "promotion_minutes": [promo_start_minute, promo_end],
             "post_promotion_minutes": [promo_end, post_end],
         },
@@ -119,6 +131,7 @@ def analyze_promotion_window(
         ],
         "performance": performance,
         "stream_stats": stream_stats or {},
+        "data_quality": timing_diagnostics,
         "settings": {
             "promo_start_minute": promo_start_minute,
             "promo_end_minute": promo_end,
@@ -235,6 +248,7 @@ def score_promotion_performance(
     post_promotion: dict[str, Any],
     word_analysis: dict[str, Any],
     stream_stats: dict[str, Any] | None,
+    baseline_available: bool = True,
 ) -> dict[str, Any]:
     engagement_lift = safe_lift(
         promotion["messages_per_minute"],
@@ -283,6 +297,7 @@ def score_promotion_performance(
         "score": round(score, 1),
         "grade": grade,
         "verdict": verdict,
+        "confidence": "normal" if baseline_available else "low_baseline_missing",
         "signals": {
             "engagement_lift": round(engagement_lift, 3),
             "volume_lift": round(volume_lift, 3),
@@ -300,6 +315,11 @@ def score_promotion_performance(
             "hours_watched": stream_stats.get("hours_watched"),
             "source": stream_stats.get("source"),
         }
+    if not baseline_available:
+        result["note"] = (
+            "No baseline chat was available before the promotion window. "
+            "Use the grade only as a directional chat-health signal, not as proof of influencer performance."
+        )
     return result
 
 

@@ -23,7 +23,7 @@ from twitch_promo_analyzer.peaks import analyze_promotion_peaks
 from twitch_promo_analyzer.script_align import align_peaks_to_script, load_influencer_script
 from twitch_promo_analyzer.translation import assess_translation_need
 from twitch_promo_analyzer.video import analyze_video_segment
-from twitch_promo_analyzer.timing import stream_origin
+from twitch_promo_analyzer.timing import align_messages_to_window, stream_origin
 from twitch_promo_analyzer.transcribe import build_merged_corpus_from_files
 from twitch_promo_analyzer.utterances import viewer_utterances_from_chat
 from twitch_promo_analyzer.window_analysis import analyze_promotion_window
@@ -37,9 +37,8 @@ ANALYSIS_DEFAULTS = {
     "promo_code": "KAV3769",
     "brand_keywords": ["temu", "kav3769", "coupon", "sconto", "codice"],
     "cta_keywords": ["!temu", "temu.com", "link", "codice", "coupon", "kav3769"],
-    "stream_stats_path": "examples/stream_stats_2776778244.json",
-    "script_path": "examples/2776778244_influencer_script.json",
-    "twitchtracker_url": "https://twitchtracker.com/therealmarzaa/streams/317352255333",
+    "stream_stats_path": None,
+    "script_path": None,
 }
 
 
@@ -113,11 +112,14 @@ def run_full_analysis(
         analysis["script_alignment"] = alignment
         peaks["top_peaks_by_minute"] = alignment["peak_alignments"]
     else:
+        script_note = (
+            f"No influencer script at {script_path}. "
+            "Add examples/<vod>_influencer_script.json or a Whisper transcript."
+            if script_path
+            else "No influencer script provided; peak alignment was skipped."
+        )
         analysis["script_alignment"] = {
-            "summary": (
-                f"No influencer script at {script_path}. "
-                "Add examples/<vod>_influencer_script.json or a Whisper transcript."
-            ),
+            "summary": script_note,
             "segments": [],
         }
 
@@ -145,10 +147,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--promo-start", type=float, default=ANALYSIS_DEFAULTS["promo_start_minute"])
     parser.add_argument("--promo-end", type=float, default=ANALYSIS_DEFAULTS["promo_end_minute"])
     parser.add_argument("--promo-code", default=ANALYSIS_DEFAULTS["promo_code"])
+    parser.add_argument("--influencer", default="therealmarzaa")
     parser.add_argument("--brand", action="append", default=[])
     parser.add_argument("--cta", action="append", default=[])
-    parser.add_argument("--script", default=ANALYSIS_DEFAULTS["script_path"])
-    parser.add_argument("--stream-stats", default=ANALYSIS_DEFAULTS["stream_stats_path"])
+    parser.add_argument("--script", default=None)
+    parser.add_argument("--stream-stats", default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--report", default=None)
     return parser
@@ -165,12 +168,17 @@ def main(argv: list[str] | None = None) -> int:
     ctas.add(args.promo_code.lower())
 
     chat_path = resolve_chat_path(paths, args.chat)
-    messages = load_messages(chat_path)
+    messages, timing_diagnostics = align_messages_to_window(
+        load_messages(chat_path),
+        args.promo_start,
+        args.promo_end,
+    )
+    for warning in timing_diagnostics.get("warnings", []):
+        print(f"Timing warning: {warning}", file=sys.stderr)
     stream_stats = load_stream_stats(Path(args.stream_stats) if args.stream_stats else None)
     if stream_stats is None:
         stream_stats = {
-            "source": "manual",
-            "twitchtracker_url": ANALYSIS_DEFAULTS["twitchtracker_url"],
+            "source": "not_provided",
         }
 
     script_path = Path(args.script) if args.script else None
@@ -200,14 +208,12 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.out or f"reports/{vod_id}_promotion_analysis.json")
     report_path = Path(args.report or f"reports/{vod_id}_promotion_report.html")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(analysis, indent=2, ensure_ascii=False), encoding="utf-8")
-    report_path.write_text(render_promotion_html(analysis), encoding="utf-8")
 
     viewer_rows = viewer_utterances_from_chat(
         messages,
         args.promo_start,
         args.promo_end,
-        influencer_name="therealmarzaa",
+        influencer_name=args.influencer,
     )
     merged = build_merged_corpus_from_files(
         vod_id=vod_id,
@@ -222,12 +228,17 @@ def main(argv: list[str] | None = None) -> int:
         "merged_json": merged["merged_json"],
         "merged_csv": merged["merged_csv"],
     }
+    out_path.write_text(json.dumps(analysis, indent=2, ensure_ascii=False), encoding="utf-8")
+    report_path.write_text(render_promotion_html(analysis), encoding="utf-8")
 
     perf = analysis["performance"]
     peaks = analysis["chat_peaks"]
     translation = analysis["translation"]["recommendation"]
     print(f"VOD {vod_id}: promotion {args.promo_start}-{args.promo_end} min · code {args.promo_code}")
     print(f"Grade: {perf['grade']} ({perf['score']}/100)")
+    print(f"Grade confidence: {perf.get('confidence', 'n/a')}")
+    if perf.get("note"):
+        print(f"Note: {perf['note']}")
     print(peaks["summary"])
     if analysis.get("script_alignment", {}).get("summary"):
         print(analysis["script_alignment"]["summary"])
@@ -283,7 +294,9 @@ td, th {{ border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertica
 <h1>Promotion analysis</h1>
 <p>{html.escape(analysis['inputs']['twitch_vod_url'])} · code {html.escape(analysis['inputs']['promo_code'])}</p>
 <div class="card"><h2>Performance</h2>
-<p>Grade {perf['grade']} ({perf['score']}/100). {html.escape(perf['verdict'])}</p></div>
+<p>Grade {perf['grade']} ({perf['score']}/100). Confidence: {html.escape(str(perf.get('confidence', 'n/a')))}.</p>
+<p>{html.escape(perf['verdict'])}</p>
+<p>{html.escape(perf.get('note', ''))}</p></div>
 <div class="card"><h2>Chat peaks (promo minute)</h2>
 <p>{html.escape(peaks.get('summary', ''))}</p>
 <table><tr><th>Promo min</th><th>Messages</th><th>Script topic</th><th>Code mentions</th></tr>{peak_rows}</table>

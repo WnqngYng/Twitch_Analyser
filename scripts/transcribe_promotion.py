@@ -30,7 +30,7 @@ from twitch_promo_analyzer.transcribe import (
     build_merged_corpus_from_files,
     transcribe_promotion_segment,
 )
-from twitch_promo_analyzer.timing import stream_origin
+from twitch_promo_analyzer.timing import align_messages_to_window, stream_origin
 from twitch_promo_analyzer.utterances import (
     merge_response_corpus,
     viewer_utterances_from_chat,
@@ -69,7 +69,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Chat not found in {folder}", file=sys.stderr)
         return 1
 
-    messages = load_messages(chat_path)
+    messages, timing_diagnostics = align_messages_to_window(
+        load_messages(chat_path),
+        args.promo_start,
+        args.promo_end,
+    )
+    for warning in timing_diagnostics.get("warnings", []):
+        print(f"Timing warning: {warning}", file=sys.stderr)
     stream_start = stream_origin(messages).isoformat()
     viewer_rows = viewer_utterances_from_chat(
         messages,

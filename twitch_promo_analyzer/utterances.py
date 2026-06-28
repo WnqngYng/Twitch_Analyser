@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .models import ChatMessage
-from .timing import offset_minutes, stream_origin
+from .timing import align_messages_to_window, offset_minutes, stream_origin
 
 
 SCHEMA_VERSION = "1"
@@ -68,12 +68,17 @@ def viewer_utterances_from_chat(
     translate_to: str = "en",
 ) -> list[dict[str, Any]]:
     """All viewer chat lines in the promo window, same shape as translation export."""
-    origin = stream_origin(messages)
+    aligned_messages, _diagnostics = align_messages_to_window(
+        messages,
+        promo_start_minute,
+        promo_end_minute,
+    )
+    origin = stream_origin(aligned_messages)
     bots = {"streamelements", "nightbot", "moobot", "fossabot"}
     utterances: list[dict[str, Any]] = []
     index = 0
 
-    for message in sorted(messages, key=lambda item: item.timestamp):
+    for message in aligned_messages:
         minute = offset_minutes(message, origin)
         if minute < promo_start_minute or minute >= promo_end_minute:
             continue
@@ -105,13 +110,19 @@ def influencer_utterances_from_whisper(
     stream_start_iso: str | None = None,
     influencer_name: str = "therealmarzaa",
     translate_to: str = "en",
-    time_offset_minutes: float = 0.0,
+    time_offset_minutes: float | None = None,
 ) -> list[dict[str, Any]]:
     """Convert Whisper JSON segments to the same utterance rows as viewer chat."""
     payload = json.loads(Path(whisper_path).read_text(encoding="utf-8"))
     segments = payload.get("segments", [])
     if not segments:
         raise ValueError(f"no segments in whisper file: {whisper_path}")
+    if time_offset_minutes is None:
+        time_offset_minutes = infer_whisper_time_offset(
+            segments,
+            promo_start_minute,
+            promo_end_minute,
+        )
 
     origin = None
     if stream_start_iso:
@@ -153,6 +164,26 @@ def influencer_utterances_from_whisper(
             )
         )
     return utterances
+
+
+def infer_whisper_time_offset(
+    segments: list[dict[str, Any]],
+    promo_start_minute: float,
+    promo_end_minute: float,
+    tolerance_minutes: float = 5.0,
+) -> float:
+    """Infer whether Whisper timestamps are full-stream or trimmed-audio relative."""
+    starts = [float(segment.get("start", 0)) / 60 for segment in segments]
+    ends = [float(segment.get("end", segment.get("start", 0))) / 60 for segment in segments]
+    raw_start = min(starts)
+    raw_end = max(ends)
+    promo_duration = max(promo_end_minute - promo_start_minute, 0)
+
+    if promo_start_minute <= raw_start <= promo_end_minute:
+        return 0.0
+    if raw_start <= 1.0 and raw_end <= promo_duration + tolerance_minutes:
+        return promo_start_minute
+    return 0.0
 
 
 def influencer_utterances_from_srt(
